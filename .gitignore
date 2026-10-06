@@ -1,0 +1,12 @@
+__pycache__/
+*.egg-info/
+.venv/
+.pytest_cache/
+.ruff_cache/
+traces/
+artifacts/predictors/
+*.npy
+*.npz
+*.safetensors
+todo.md
+TODO.md
