@@ -1,0 +1,223 @@
+{
+  "created": "2026-10-06T11:57:39",
+  "system": {
+    "platform": "macOS-27.2-arm64-arm-64bit-Mach-O",
+    "chip": "Apple M3 Max",
+    "memory_bytes": 38654705664,
+    "mlx": "0.32.2",
+    "python": "3.14.1"
+  },
+  "config": {
+    "mode": [
+      "predictor"
+    ],
+    "predictor": "artifacts/predictors/linear",
+    "opt": [
+      [
+        "k",
+        8
+      ],
+      [
+        "lookaheads",
+        [
+          1,
+          2
+        ]
+      ],
+      [
+        "protect",
+        true
+      ],
+      [
+        "parallel_demand",
+        true
+      ]
+    ],
+    "prompts": [
+      "code-py-lru"
+    ],
+    "split": "eval",
+    "limit": null,
+    "max_tokens": 32,
+    "runs": 1,
+    "model": "/Users/dofa/qwen3.8next/models/pipenetwork-Qwen3.8-Flash-Next-MLX-4bit",
+    "expert_budget_gib": 8.0,
+    "ple_budget_gib": 1.0,
+    "mlx_cache_gib": 1.0,
+    "mlx_memory_gib": 28.0,
+    "cache_policy": "adaptive",
+    "io_workers": 6,
+    "expert_prefetch": 2,
+    "ple_prefetch": 8,
+    "out": "artifacts/bench",
+    "compare": true
+  },
+  "results": [
+    {
+      "mode": "predictor",
+      "prompt_id": "code-py-lru",
+      "runs": [
+        {
+          "prompt_id": "code-py-lru",
+          "category": "code",
+          "mode": "predictor",
+          "prompt_tokens": 45,
+          "generated_tokens": 32,
+          "generated_ids": [
+            71093,
+            12305,
+            198,
+            1445,
+            14856,
+            1120,
+            51425,
+            1358,
+            1005,
+            43072,
+            5287,
+            1714,
+            25,
+            198,
+            262,
+            4071,
+            198,
+            262,
+            436,
+            34810,
+            18887,
+            440,
+            496,
+            7,
+            16,
+            8,
+            615,
+            321,
+            2113,
+            7289,
+            1608,
+            51425
+          ],
+          "generated_text": "```python\nfrom collections import OrderedDict\n\n\nclass LRUCache:\n    \"\"\"\n    LRU Cache with O(1) get and put operations using OrderedDict",
+          "load_s": 0.6307120000001305,
+          "ttft_s": 11.69117712499974,
+          "prefill_s": 11.689528249999967,
+          "decode_s": 14.058224500000506,
+          "prefill_tok_s": 3.849599319801475,
+          "decode_tok_s": 2.205114877771292,
+          "prefetch_submitted": 3233,
+          "prefetch_hits": 2737,
+          "prefetch_wasted": 478,
+          "prefetch_hit_rate": 0.8465821218682338,
+          "decode_prefetch_submitted": 2788,
+          "decode_prefetch_hits": 2292,
+          "decode_prefetch_wasted": 478,
+          "decode_prefetch_hit_rate": 0.8220946915351507,
+          "wait_s": 4.4805147899432995,
+          "decode_wait_s": 1.9118420099903233,
+          "loads": 10612,
+          "loaded_bytes": 29340057600,
+          "disk_bytes_read": 29340169600,
+          "decode_disk_bytes_read": 11551374400,
+          "cache_hits": 13740,
+          "cache_misses": 7574,
+          "peak_mlx_bytes": 12201994034,
+          "peak_rss_bytes": 11552358400,
+          "counters": {
+            "expert": {
+              "loads": 10612,
+              "load_seconds": 72.36326024504706,
+              "wait_seconds": 4.4805147899432995,
+              "loaded_bytes": 29340057600,
+              "prefetch_submitted": 3233,
+              "prefetch_hits": 2737,
+              "prefetch_wasted": 478,
+              "routes": 36480,
+              "rows_requested": 0,
+              "unique_rows": 0,
+              "inflight": 0,
+              "completed_prefetch": 0,
+              "ready_prefetch": 16,
+              "prefetch_limit": 0
+            },
+            "cache": {
+              "hits": 13740,
+              "misses": 7574,
+              "evictions": 7506
+            },
+            "disk": {
+              "pread_calls": 98868,
+              "bytes_read": 29340169600,
+              "requested_bytes": 29340169600,
+              "read_seconds": 72.81955608808858,
+              "tensors_read": 0,
+              "rows_read": 98868
+            }
+          },
+          "decode_counters": {
+            "expert": {
+              "loads": 4178,
+              "load_seconds": 14.131357174988807,
+              "wait_seconds": 1.9118420099903233,
+              "loaded_bytes": 11551334400,
+              "prefetch_submitted": 2788,
+              "prefetch_hits": 2292,
+              "prefetch_wasted": 478,
+              "routes": 14880,
+              "rows_requested": 0,
+              "unique_rows": 0,
+              "inflight": 0,
+              "completed_prefetch": 0,
+              "ready_prefetch": 16,
+              "prefetch_limit": 0
+            },
+            "cache": {
+              "hits": 13295,
+              "misses": 1585,
+              "evictions": 4178
+            },
+            "disk": {
+              "pread_calls": 38802,
+              "bytes_read": 11551374400,
+              "requested_bytes": 11551374400,
+              "read_seconds": 14.165493350013094,
+              "tensors_read": 0,
+              "rows_read": 38802
+            }
+          }
+        }
+      ],
+      "median": {
+        "ttft_s": 11.69117712499974,
+        "prefill_tok_s": 3.849599319801475,
+        "decode_tok_s": 2.205114877771292,
+        "prefetch_hit_rate": 0.8465821218682338,
+        "prefetch_hits": 2737,
+        "prefetch_submitted": 3233,
+        "prefetch_wasted": 478,
+        "decode_prefetch_hit_rate": 0.8220946915351507,
+        "decode_prefetch_hits": 2292,
+        "decode_prefetch_submitted": 2788,
+        "decode_prefetch_wasted": 478,
+        "wait_s": 4.4805147899432995,
+        "decode_wait_s": 1.9118420099903233,
+        "loaded_bytes": 29340057600,
+        "disk_bytes_read": 29340169600,
+        "decode_disk_bytes_read": 11551374400,
+        "cache_hits": 13740,
+        "cache_misses": 7574,
+        "peak_mlx_bytes": 12201994034,
+        "peak_rss_bytes": 11552358400,
+        "load_s": 0.6307120000001305
+      }
+    }
+  ],
+  "compare": {
+    "code-py-lru": {
+      "modes": [
+        "predictor"
+      ],
+      "identical": true,
+      "first_divergence": null
+    }
+  }
+}
