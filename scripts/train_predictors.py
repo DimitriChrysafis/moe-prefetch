@@ -30,6 +30,8 @@ def main() -> int:
     ap.add_argument("--weight-decay", type=float, default=defaults.weight_decay)
     ap.add_argument("--max-tokens", type=int, default=defaults.max_tokens)
     ap.add_argument("--decode-weight", type=float, default=defaults.decode_weight)
+    ap.add_argument("--distill", type=float, default=defaults.distill)
+    ap.add_argument("--temperature", type=float, default=defaults.temperature)
     ap.add_argument("--val-fraction", type=float, default=defaults.val_fraction)
     ap.add_argument("--patience", type=int, default=defaults.patience)
     ap.add_argument("--seed", type=int, default=defaults.seed)
@@ -47,6 +49,8 @@ def main() -> int:
         weight_decay=args.weight_decay,
         max_tokens=args.max_tokens,
         decode_weight=args.decode_weight,
+        distill=args.distill,
+        temperature=args.temperature,
         val_fraction=args.val_fraction,
         patience=args.patience,
         seed=args.seed,

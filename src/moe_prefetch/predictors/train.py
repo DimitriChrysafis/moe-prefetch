@@ -21,6 +21,8 @@ class Config:
     weight_decay: float = 1e-4
     max_tokens: int = 40000
     decode_weight: float = 1.0
+    distill: float = 0.0
+    temperature: float = 1.0
     val_fraction: float = 0.15
     patience: int = 5
     eval_k: int = 16
@@ -68,7 +70,7 @@ def _recall(torch, logits, y, k: int) -> float:
     return float((y.gather(1, top).sum(-1) / y.sum(-1)).mean())
 
 
-def _fit_head(torch, cfg: Config, x, base, y, w, vx, vbase, vy, gen):
+def _fit_head(torch, cfg: Config, x, base, y, soft, w, vx, vbase, vy, gen):
     n, dim = x.shape
     experts = base.shape[1]
     scale = torch.ones(experts, requires_grad=True)
@@ -87,13 +89,15 @@ def _fit_head(torch, cfg: Config, x, base, y, w, vx, vbase, vy, gen):
             out = out + (xb @ down) @ up
         return out
 
-    def loss_fn(logits, yb, wb):
+    def loss_fn(logits, yb, sb, wb):
         if cfg.loss == "bce":
             per = torch.nn.functional.binary_cross_entropy_with_logits(
                 logits, yb, reduction="none"
             ).sum(-1)
         else:
             per = -(yb * torch.log_softmax(logits, -1)).sum(-1) / yb.sum(-1)
+        if sb is not None:
+            per = per - cfg.distill * (sb * torch.log_softmax(logits, -1)).sum(-1)
         return (per * wb).sum() / wb.sum()
 
     def snapshot():
@@ -102,7 +106,7 @@ def _fit_head(torch, cfg: Config, x, base, y, w, vx, vbase, vy, gen):
     def score():
         with torch.no_grad():
             if vx is None:
-                return -float(loss_fn(forward(x, base), y, w))
+                return -float(loss_fn(forward(x, base), y, soft, w))
             return _recall(torch, forward(vx, vbase), vy, cfg.eval_k)
 
     initial = best = score()
@@ -112,7 +116,8 @@ def _fit_head(torch, cfg: Config, x, base, y, w, vx, vbase, vy, gen):
         for start in range(0, n, cfg.batch):
             idx = perm[start : start + cfg.batch]
             opt.zero_grad()
-            loss_fn(forward(x[idx], base[idx]), y[idx], w[idx]).backward()
+            sb = None if soft is None else soft[idx]
+            loss_fn(forward(x[idx], base[idx]), y[idx], sb, w[idx]).backward()
             opt.step()
         current = score()
         if current > best + 1e-5:
@@ -159,7 +164,11 @@ def fit_linear(runs: list[Run], gates: np.ndarray, cfg: Config, log=sys.stderr) 
             vy = _multi_hot(torch, val.routes[:, target], experts) if val else None
             base = x @ weight_t[target]
             vbase = vx @ weight_t[target] if val else None
-            params, initial, best = _fit_head(torch, cfg, x, base, y, w, vx, vbase, vy, gen)
+            soft = None
+            if cfg.distill:
+                teacher = torch.from_numpy(train.hidden(target, False)) @ weight_t[target]
+                soft = torch.softmax(teacher / cfg.temperature, -1)
+            params, initial, best = _fit_head(torch, cfg, x, base, y, soft, w, vx, vbase, vy, gen)
             scale[layer, i], bias[layer, i] = params[0], params[1]
             if cfg.rank:
                 down[layer, i], up[layer, i] = params[2], params[3]
