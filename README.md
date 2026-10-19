@@ -4,54 +4,36 @@ learned expert prefetching for [qwen3.8-flash-next](https://github.com/DimitriCh
 
 ## the idea
 
-the model has 48 moe layers, and each layer's router picks 10 of 512 experts for every token. the engine only knows which experts a layer needs after that layer's router runs, so the read always blocks.
+the model has 48 moe layers, and each layer's router picks 10 of 512 experts for every token. the engine only learns which experts a layer needs once that layer's router has run, so every expert read waits on the ssd.
 
-```
-layer L ──► router L ──► read experts for L          blocks the layer
-   │
-   └──► predictor ──► read experts for L+1 to L+3    runs while L computes
-```
-
-the hidden state going into layer L already says a lot about which experts the later layers will pick. a small model can read it and start those reads early.
+the hidden state going into layer L already says a lot about which experts the next layers will pick. a small predictor reads it and starts those reads while layer L is still computing.
 
 ## results
 
-![results](images/results.png)
+![per prompt results](images/results.png)
 
-8 held-out prompts, 128 tokens each, medians. m3 max, 36 gb, 8 gib expert cache, fresh process per run. raw runs are in `artifacts/bench/20261006-125327.json`.
+8 prompts the predictor never trained on, 128 tokens each, on an m3 max with 36 gb and an 8 gib expert cache. raw runs are in `artifacts/bench/20261006-125327.json`.
 
-- about 55% of the experts it prefetches get used. the baseline is 0.4%.
-- time blocked on expert reads drops from 37.9 s to 13.3 s per run.
-- decode speed barely changes, 1.33 to 1.37 tok/s. the output matches token for token on all 8 prompts.
+- read wait fell by 53 to 68% on every prompt. the median run went from 37.9 s of waiting to 13.3 s.
+- 45 to 62% of the prefetched experts got used. without the predictor it's about 1% or less.
+- decode went up on 5 prompts and down on 3. the median went from 1.33 to 1.37 tok/s.
+- every prompt produced the same tokens with and without the predictor.
 
-the gap between the second and third bullets is the important part. see below.
+the predictor works, but saving wait time didn't make decoding faster. the biggest drop was agent-fix-test, from 0.96 to 0.69 tok/s. the next section covers why.
 
 ## offline recall
 
-how often a future layer's real experts show up in the predictor's top 10. 8 held-out prompts, 248 decode tokens.
+how often the predictor's top 10 contains the experts a future layer actually routes to, on the 8 held-out prompts.
 
-| predictor | 1 layer ahead | 2 ahead | 3 ahead |
-|---|---:|---:|---:|
-| engine frequency heuristic | 0.222 | 0.224 | 0.226 |
-| target layer's router, untrained | 0.634 | 0.541 | 0.496 |
-| trained rank-64 heads | 0.672 | 0.615 | 0.587 |
+- engine's frequency heuristic: 22% one layer ahead, 23% three layers ahead
+- the target layer's own router, untrained: 63% and 50%
+- trained rank-64 heads: 67% and 59%
 
-the untrained router is already strong, probably because the hidden state changes slowly from layer to layer. training helps more the further ahead it looks.
-
-## ablations
-
-same 6 non-agent prompts, medians.
-
-| config | hit rate | read wait (s) | decode (tok/s) |
-|---|---:|---:|---:|
-| engine heuristic (baseline) | 0.3% | 37.0 | 1.354 |
-| predictor, no pinning, serial reads | 8.1% | 22.0 | 1.063 |
-| predictor, pinning, serial reads | 54.6% | 18.9 | 1.328 |
-| predictor, pinning, parallel reads | 54.5% | 12.8 | 1.422 |
+the untrained router is already strong, probably because the hidden state changes slowly from layer to layer. training matters more the further ahead it looks.
 
 ## what didn't work
 
-pinning is required. without it, the cache gives a freshly prefetched expert the lowest use count and evicts it before the layer that needs it runs. the hit rate falls to 8%, and decode ends up slower than with no prefetch at all.
+pinning is required. without it, the cache's adaptive policy evicts a freshly prefetched expert before the layer that needs it runs. the hit rate falls from 55% to 8%, and decode drops to 1.06 tok/s, below the 1.35 baseline on the six non-agent prompts.
 
 less waiting didn't mean faster decode. a 128-token run waits about 24 s less, but decode only gains about 3%. my guess is the freed time goes to turning rows into mlx arrays on the main thread. wrong guesses also add reads: bytes read went up on 7 of 8 prompts, and prose-story went from 83 to 111 GiB.
 
@@ -61,14 +43,12 @@ long prompts got slower. on agent-fix-test, an 850-token prompt, time to first t
 
 ## how it's built
 
-| script | what it does |
-|---|---|
-| `scripts/record_traces.py` | runs the model over 30 prompts and saves the routed experts for every token |
-| `scripts/train_predictors.py` | trains one head per layer and lookahead, starting from that layer's router |
-| `scripts/eval_predictors.py` | recall@k on the held-out prompts |
-| `scripts/simulate.py` | replays traces through a copy of the cache without loading the model |
-| `scripts/bench.py` | baseline vs predictor in fresh processes, fails if the tokens differ |
-| `moe_prefetch.runtime` | the hook that submits predictions as async reads |
+- `scripts/record_traces.py`: runs the model over 30 prompts and saves the routed experts for every token
+- `scripts/train_predictors.py`: one head per layer and lookahead, starting from that layer's router
+- `scripts/eval_predictors.py`: recall@k on the held-out prompts
+- `scripts/simulate.py`: replays traces through a copy of the cache without loading the model
+- `scripts/bench.py`: baseline vs predictor in fresh processes, fails if the tokens differ
+- `moe_prefetch.runtime`: the hook that submits predictions as async reads
 
 ## run it
 
